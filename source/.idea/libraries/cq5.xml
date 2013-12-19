@@ -1,12 +1,10 @@
 <component name="libraryTable">
   <library name="cq5">
     <CLASSES>
-      <root url="jar://$PROJECT_DIR$/../libs/cq5/com.day.jcr.vault-2.4.18.jar!/" />
-      <root url="jar://$PROJECT_DIR$/../libs/cq5/cq-commons-5.5.0.jar!/" />
+      <root url="file://$PROJECT_DIR$/../libs/cq5" />
     </CLASSES>
-    <JAVADOC>
-      <root url="jar://$PROJECT_DIR$/../libs/cq5/cq-commons-5.5.0-javadoc.jar!/" />
-    </JAVADOC>
+    <JAVADOC />
     <SOURCES />
+    <jarDirectory url="file://$PROJECT_DIR$/../libs/cq5" recursive="false" />
   </library>
 </component>
