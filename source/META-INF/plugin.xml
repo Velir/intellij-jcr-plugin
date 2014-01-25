@@ -1,7 +1,7 @@
 <idea-plugin version="2">
 	<name>CQ5 Content Editor</name>
 	<description>short description of the plugin</description>
-	<version>1.0</version>
+	<version>1.1</version>
 	<vendor>YourCompany</vendor>
 	<idea-version since-build="8000"/>
 
@@ -65,6 +65,7 @@
 		        text="Import to JCR (destructive)">
 			<add-to-group group-id="ProjectViewPopupMenu" anchor="after"
 			              relative-to-action="velir.intellij.cq5.actions.content.Export"/>
+			<add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
 		</action>
 		<action id="velir.intellij.cq5.actions.content.ContextNodeCreator"
 		        class="velir.intellij.cq5.actions.content.ContextNodeCreator"

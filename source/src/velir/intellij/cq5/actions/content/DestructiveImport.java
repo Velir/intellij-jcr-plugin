@@ -1,20 +1,31 @@
 package velir.intellij.cq5.actions.content;
 
-import com.intellij.ide.IdeView;
-import com.intellij.openapi.actionSystem.*;
+import java.io.IOException;
+import java.util.Calendar;
+import java.util.Date;
+import javax.jcr.Binary;
+import javax.jcr.Node;
+import javax.jcr.NodeIterator;
+import javax.jcr.Property;
+import javax.jcr.RepositoryException;
+import javax.jcr.Value;
+import javax.jcr.ValueFactory;
+
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.DataConstants;
+import com.intellij.openapi.actionSystem.DataContext;
+import com.intellij.openapi.actionSystem.PlatformDataKeys;
+import com.intellij.openapi.actionSystem.Presentation;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.progress.PerformInBackgroundOption;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.JDOMUtil;
 import com.intellij.openapi.vcs.changes.BackgroundFromStartOption;
-import com.intellij.psi.PsiDirectory;
-import com.intellij.psi.PsiFile;
-import org.apache.jackrabbit.util.Timer;
+import com.intellij.openapi.vfs.VirtualFile;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -25,11 +36,6 @@ import velir.intellij.cq5.jcr.model.VNode;
 import velir.intellij.cq5.jcr.model.VProperty;
 import velir.intellij.cq5.util.PsiUtils;
 
-import javax.jcr.*;
-import java.io.IOException;
-import java.util.Calendar;
-import java.util.Date;
-
 public class DestructiveImport extends JCRAction {
 	private static final Logger log = com.intellij.openapi.diagnostic.Logger.getInstance(JCRAction.class);
 	public static final String JCR_MIXIN_TYPES = "jcr:mixinTypes";
@@ -37,8 +43,7 @@ public class DestructiveImport extends JCRAction {
 	@Override
 	public void actionPerformed(AnActionEvent anActionEvent) {
 		final DataContext context = anActionEvent.getDataContext();
-		final IdeView ideView = LangDataKeys.IDE_VIEW.getData(context);
-		final PsiDirectory[] dirs = ideView.getDirectories();
+		final VirtualFile target = (VirtualFile) context.getData(DataConstants.VIRTUAL_FILE);
 		final JCRConfiguration jcrConfiguration = getConfiguration(anActionEvent);
 		final Application application = ApplicationManager.getApplication();
 		final Project project = anActionEvent.getData(PlatformDataKeys.PROJECT);
@@ -47,24 +52,25 @@ public class DestructiveImport extends JCRAction {
 			public void run(@NotNull ProgressIndicator progressIndicator) {
 				progressIndicator.setIndeterminate(true);
 				progressIndicator.setText("Importing to JCR...");
-				for (final PsiDirectory directory : dirs) {
-					application.runReadAction(new Runnable() {
-						public void run() {
-							try {
+				application.runReadAction(new Runnable() {
+					@Override
+					public void run() {
+						try {
+							Node rootNode = null;
+							if (target.isDirectory()) {
 								// if this node is a "typed" node, get the VNode version of it
 								VNode vNode = null;
 								Element rootElement = null;
-								PsiFile contentFile = directory.findFile(".content.xml");
+								VirtualFile contentFile = target.findChild(".content.xml");
 								if (contentFile != null) {
-									rootElement = JDOMUtil.loadDocument(contentFile.getVirtualFile().getInputStream()).getRootElement();
+									rootElement = JDOMUtil.loadDocument(contentFile.getInputStream()).getRootElement();
 									vNode = VNode.makeVNode(rootElement);
 								}
 
 								// get/create rootNode
-								Node rootNode = null;
 								String nodeType = vNode == null ? "nt:folder" : vNode.getType();
-								rootNode = jcrConfiguration.getNodeCreative(directory.getVirtualFile().getPath(),
-										"nt:folder", nodeType);
+								rootNode = jcrConfiguration.getNodeCreative(target.getPath(),
+									"nt:folder", nodeType);
 
 								// wipe out existing nodes
 								NodeIterator nodeIterator = rootNode.getNodes();
@@ -82,86 +88,89 @@ public class DestructiveImport extends JCRAction {
 								}
 
 								// start import to jcr
-								importR(rootNode, directory);
-								rootNode.getSession().save();
+								importR(rootNode, target);
 
-							} catch (RepositoryException re) {
-								log.error("could not import nodes to jcr", re);
-							} catch (IOException ioe) {
-								log.error("could not import nodes to jcr", ioe);
-							} catch (JDOMException jde) {
-								log.error("could not import nodes to jcr", jde);
+							} else {
+								rootNode = jcrConfiguration.getNodeCreative(target.getParent().getPath(),
+									"nt:folder", "nt:folder");
+								importFile(rootNode, target);
 							}
+							rootNode.getSession().save();
+
+						} catch (RepositoryException re) {
+							log.error("could not import nodes to jcr", re);
+						} catch (IOException ioe) {
+							log.error("could not import nodes to jcr", ioe);
+						} catch (JDOMException jde) {
+							log.error("could not import nodes to jcr", jde);
 						}
-					});
-				}
+					}
+				});
 			}
 		};
 		ProgressManager.getInstance().run(task);
 	}
 
-	private void importR (Node node, PsiDirectory directory) throws RepositoryException, IOException, JDOMException {
+	private void importR (Node node, VirtualFile directory) throws RepositoryException, IOException, JDOMException {
 		// do directories
-		for (PsiDirectory psiDirectory : directory.getSubdirectories()) {
+		for (VirtualFile child : directory.getChildren()) {
+			if (child.isDirectory()) {
+				VirtualFile contentFile = child.findChild(".content.xml");
+				Node subNode = null;
 
-			PsiFile contentFile = psiDirectory.findFile(".content.xml");
-			Node subNode = null;
-
-			// if this is a typed node
-			if (contentFile != null) {
-                final Document document = JDOMUtil.loadDocument(contentFile.getVirtualFile().getInputStream());
-                final Element rootElement = document.getRootElement();
-
-				VNode vNode = VNode.makeVNode(rootElement);
-                vNode.setName(psiDirectory.getName());
-
-				subNode = node.addNode(PsiUtils.unmungeNamespace(vNode.getName()), vNode.getType());
-				setProperties(subNode, vNode);
-
-                // recurse to handle packed xml files
-                unpackRecursively(rootElement, subNode);
-			}
-			// if this is just a folder node
-			else {
-				subNode = node.addNode(psiDirectory.getName(), "nt:folder");
-			}
-
-			importR(subNode, psiDirectory);
-		}
-
-		// do files
-		for (PsiFile psiFile : directory.getFiles()) {
-
-			// only do files that aren't property node definitions
-			if (! ".content.xml".equals(psiFile.getName())) {
-
-				// see if this is a packed node definition, and try to handle it
-				if ("text/xml".equals(getMimeType(psiFile.getName()))) {
-					final Document document = JDOMUtil.loadDocument(psiFile.getVirtualFile().getInputStream());
+				// if this is a typed node
+				if (contentFile != null) {
+					final Document document = JDOMUtil.loadDocument(contentFile.getInputStream());
 					final Element rootElement = document.getRootElement();
 
-					// if this is a packed xml definition, start recursively generating jcr nodes
-					if ("jcr:root".equals(rootElement.getQualifiedName())) {
-						final VNode rootNode = VNode.makeVNode(rootElement);
+					VNode vNode = VNode.makeVNode(rootElement);
+					vNode.setName(child.getName());
 
-						// set root jcr node name by filename, rather than element name (since it's always jcr:root)
-						String name = PsiUtils.unmungeNamespace(psiFile.getName().split("\\.")[0]);
-						final Node childNode = node.addNode(name, rootNode.getType());
-						setProperties(childNode, rootNode);
+					subNode = node.addNode(PsiUtils.unmungeNamespace(vNode.getName()), vNode.getType());
+					setProperties(subNode, vNode);
 
-						// start recursion
-						unpackRecursively(rootElement, childNode);
+					// recurse to handle packed xml files
+					unpackRecursively(rootElement, subNode);
+				}
+				// if this is just a folder node
+				else {
+					subNode = node.addNode(child.getName(), "nt:folder");
+				}
+
+				importR(subNode, child);
+			}
+			else {
+				// only do files that aren't property node definitions
+				if (! ".content.xml".equals(child.getName())) {
+
+					// see if this is a packed node definition, and try to handle it
+					if ("text/xml".equals(getMimeType(child.getName()))) {
+						final Document document = JDOMUtil.loadDocument(child.getInputStream());
+						final Element rootElement = document.getRootElement();
+
+						// if this is a packed xml definition, start recursively generating jcr nodes
+						if ("jcr:root".equals(rootElement.getQualifiedName())) {
+							final VNode rootNode = VNode.makeVNode(rootElement);
+
+							// set root jcr node name by filename, rather than element name (since it's always jcr:root)
+							String name = PsiUtils.unmungeNamespace(child.getName().split("\\.")[0]);
+							final Node childNode = node.addNode(name, rootNode.getType());
+							setProperties(childNode, rootNode);
+
+							// start recursion
+							unpackRecursively(rootElement, childNode);
+						}
+
+						// this is a regular file, import it as is
+						else {
+							importFile(node, child);
+						}
 					}
 
 					// this is a regular file, import it as is
 					else {
-						importFile(node, psiFile);
+						importFile(node, child);
 					}
-				}
-
-				// this is a regular file, import it as is
-				else {
-					importFile(node, psiFile);
 				}
 			}
 		}
@@ -264,12 +273,12 @@ public class DestructiveImport extends JCRAction {
 			|| "jcr:createdBy".equals(name);
 	}
 
-	private void importFile (Node node, PsiFile file) throws RepositoryException, IOException {
+	private void importFile (Node node, VirtualFile file) throws RepositoryException, IOException {
 		ValueFactory valueFactory = node.getSession().getValueFactory();
-		Binary binary = valueFactory.createBinary(file.getVirtualFile().getInputStream());
+		Binary binary = valueFactory.createBinary(file.getInputStream());
 
-		Node fileNode = node.addNode(file.getName(), "nt:file");
-		Node contentNode = fileNode.addNode("jcr:content", "nt:resource");
+		Node fileNode = node.hasNode(file.getName()) ? node.getNode(file.getName()) : node.addNode(file.getName(), "nt:file");
+		Node contentNode = fileNode.hasNode("jcr:content") ? fileNode.getNode("jcr:content") : fileNode.addNode("jcr:content", "nt:resource");
 		contentNode.setProperty("jcr:mimeType", getMimeType(file.getName()));
 		contentNode.setProperty("jcr:data", binary);
 	}
