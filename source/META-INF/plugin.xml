@@ -1,8 +1,8 @@
 <idea-plugin version="2">
-	<name>CQ5 Content Editor</name>
-	<description>short description of the plugin</description>
+	<name>JCR Content Editor</name>
+	<description>Allows import/export of JCR content from CQ/AEM(/other?) and limited editing</description>
 	<version>1.1</version>
-	<vendor>YourCompany</vendor>
+	<vendor>Velir</vendor>
 	<idea-version since-build="8000"/>
 
 	<application-components>
