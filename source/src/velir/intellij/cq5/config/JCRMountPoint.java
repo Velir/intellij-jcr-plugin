@@ -1,6 +1,5 @@
 package velir.intellij.cq5.config;
 
-import javax.jcr.Node;
 import java.util.regex.Pattern;
 
 public class JCRMountPoint {
@@ -58,7 +57,7 @@ public class JCRMountPoint {
 	public String getJcrPath (String filePath) {
 		String path = jcrNode;
 		if (! jcrNode.endsWith("/")) path += "/";
-		path += filePath.replaceFirst(getFileSystemMountPointEscaped(), "").replaceFirst("^/", "");
+		path += filePath.replaceFirst(Pattern.quote(getFileSystemMountPointEscaped()), "").replaceFirst("^/", "");
 		return path;
 	}
 
