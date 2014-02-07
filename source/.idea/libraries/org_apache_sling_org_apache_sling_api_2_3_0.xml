@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="org.apache.sling:org.apache.sling.api:2.3.0" type="repository">
+    <properties maven-id="org.apache.sling:org.apache.sling.api:2.3.0" />
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/sling/org.apache.sling.api/2.3.0/org.apache.sling.api-2.3.0.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/javax/servlet/servlet-api/2.4/servlet-api-2.4.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/org/slf4j/slf4j-api/1.5.2/slf4j-api-1.5.2.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/biz/aQute/bndlib/1.50.0/bndlib-1.50.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
