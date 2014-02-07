@@ -1,5 +1,18 @@
 package velir.intellij.cq5.config;
 
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import javax.jcr.Credentials;
+import javax.jcr.Node;
+import javax.jcr.Repository;
+import javax.jcr.RepositoryException;
+import javax.jcr.RepositoryFactory;
+import javax.jcr.Session;
+import javax.jcr.SimpleCredentials;
+import javax.swing.*;
+
 import com.day.cq.commons.jcr.JcrUtil;
 import com.intellij.facet.FacetConfiguration;
 import com.intellij.facet.ProjectFacetManager;
@@ -22,13 +35,6 @@ import org.jetbrains.annotations.Nls;
 import velir.intellij.cq5.facet.JCRFacet;
 import velir.intellij.cq5.facet.JCRFacetType;
 import velir.intellij.cq5.jcr.model.VNodeDefinition;
-
-import javax.jcr.*;
-import javax.swing.*;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.List;
 
 @State(
 		name = "JCRConfiguration",
@@ -311,16 +317,20 @@ public class JCRConfiguration implements FacetConfiguration, PersistentStateComp
 
 
 	/**
-	 * if the node doesn't exist, create it. Return it regardless
+	 * if the node doesn't exist, create it. If it does exist, wipe it out. Return it regardless
 	 * @param path
 	 * @return
 	 * @throws RepositoryException
 	 */
-	public Node getNodeCreative (String path, String intermediateType, String nodeType) throws RepositoryException {
+	public Node getOrCreateParentNode(String path, String intermediateType) throws RepositoryException {
 		JCRMountPoint jcrMountPoint = getMountPoint(path);
 		String jcrPath = jcrMountPoint.getJcrPath(path);
 		Session session = getSession();
 
-		return JcrUtil.createPath(jcrPath, intermediateType, nodeType, session, false);
+		Node node = JcrUtil.createPath(jcrPath, intermediateType, session);
+		Node parent = node.getParent();
+		node.remove();
+		session.save();
+		return parent;
 	}
 }

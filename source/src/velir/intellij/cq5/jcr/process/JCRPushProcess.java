@@ -1,11 +1,11 @@
 package velir.intellij.cq5.jcr.process;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Calendar;
 import java.util.Date;
 import javax.jcr.Binary;
 import javax.jcr.Node;
-import javax.jcr.NodeIterator;
 import javax.jcr.Property;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
@@ -40,67 +40,61 @@ public class JCRPushProcess implements Runnable {
 		this.jcrConfiguration = jcrConfiguration;
 	}
 
-	private void importR (Node node, VirtualFile directory) throws RepositoryException, IOException, JDOMException {
-		// do directories
-		for (VirtualFile child : directory.getChildren()) {
-			if (child.isDirectory()) {
-				VirtualFile contentFile = child.findChild(".content.xml");
-				Node subNode = null;
-
-				// if this is a typed node
-				if (contentFile != null) {
-					final Document document = JDOMUtil.loadDocument(contentFile.getInputStream());
-					final Element rootElement = document.getRootElement();
-
-					VNode vNode = VNode.makeVNode(rootElement);
-					vNode.setName(child.getName());
-
-					subNode = node.addNode(PsiUtils.unmungeNamespace(vNode.getName()), vNode.getType());
-					setProperties(subNode, vNode);
-
-					// recurse to handle packed xml files
-					unpackRecursively(rootElement, subNode);
-				}
-				// if this is just a folder node
-				else {
-					subNode = node.addNode(child.getName(), "nt:folder");
-				}
-
-				importR(subNode, child);
+	private void importR (Node parent, VirtualFile virtualFile) throws RepositoryException, IOException, JDOMException {
+		if (virtualFile.isDirectory()) {
+			VirtualFile contentFile = virtualFile.findChild(".content.xml");
+			Node node;
+			if (contentFile != null) {
+				InputStream inputStream = contentFile.getInputStream();
+				VNode vNode = VNode.makeVNode(inputStream);
+				inputStream.close();
+				node = parent.addNode(PsiUtils.unmungeNamespace(virtualFile.getName()), vNode.getType());
+			} else {
+				node = parent.addNode(virtualFile.getName(), "nt:folder");
 			}
-			else {
-				// only do files that aren't property node definitions
-				if (! ".content.xml".equals(child.getName())) {
 
-					// see if this is a packed node definition, and try to handle it
-					if ("text/xml".equals(getMimeType(child.getName()))) {
-						final Document document = JDOMUtil.loadDocument(child.getInputStream());
-						final Element rootElement = document.getRootElement();
+			// do children
+			for (VirtualFile child : virtualFile.getChildren()) {
+				importR(node, child);
+			}
 
-						// if this is a packed xml definition, start recursively generating jcr nodes
-						if ("jcr:root".equals(rootElement.getQualifiedName())) {
-							final VNode rootNode = VNode.makeVNode(rootElement);
+		} else {
+			if ("text/xml".equals(getMimeType(virtualFile.getName()))) {
+				InputStream inputStream = virtualFile.getInputStream();
+				final Document document = JDOMUtil.loadDocument(inputStream);
+				inputStream.close();
+				final Element rootElement = document.getRootElement();
 
-							// set root jcr node name by filename, rather than element name (since it's always jcr:root)
-							String name = PsiUtils.unmungeNamespace(child.getName().split("\\.")[0]);
-							final Node childNode = node.addNode(name, rootNode.getType());
-							setProperties(childNode, rootNode);
+				// if this xml defines JCR content
+				if ("jcr:root".equals(rootElement.getQualifiedName())) {
+					VNode vNode = VNode.makeVNode(rootElement);
+					Node unpackDestination;
 
-							// start recursion
-							unpackRecursively(rootElement, childNode);
-						}
-
-						// this is a regular file, import it as is
-						else {
-							importFile(node, child);
-						}
+					// this content applies to the parent node, if it's .content.xml
+					if (".content.xml".equals(virtualFile.getName())) {
+						unpackDestination = parent;
 					}
 
-					// this is a regular file, import it as is
+					// this content is for a node that should be named after this file (E.G. dialog.xml -> dialog)
 					else {
-						importFile(node, child);
+						String name = PsiUtils.unmungeNamespace(virtualFile.getName().split("\\.")[0]);
+						unpackDestination = parent.addNode(name, vNode.getType());
 					}
+
+					// set properties and then recursively unpack
+					setProperties(unpackDestination, vNode);
+					unpackRecursively(rootElement, unpackDestination);
 				}
+
+				// this is just a regular xml file, not a jcr content file. Import in the standard manner
+				else {
+					importFile(parent, virtualFile);
+				}
+			}
+
+			// this isn't a special file, import in the standard manner
+			else {
+				importFile(parent, virtualFile);
 			}
 		}
 	}
@@ -204,7 +198,9 @@ public class JCRPushProcess implements Runnable {
 
 	private void importFile (Node node, VirtualFile file) throws RepositoryException, IOException {
 		ValueFactory valueFactory = node.getSession().getValueFactory();
-		Binary binary = valueFactory.createBinary(file.getInputStream());
+		InputStream inputStream = file.getInputStream();
+		Binary binary = valueFactory.createBinary(inputStream);
+		inputStream.close();
 
 		Node fileNode = node.hasNode(file.getName()) ? node.getNode(file.getName()) : node.addNode(file.getName(), "nt:file");
 		Node contentNode = fileNode.hasNode("jcr:content") ? fileNode.getNode("jcr:content") : fileNode.addNode("jcr:content", "nt:resource");
@@ -232,45 +228,30 @@ public class JCRPushProcess implements Runnable {
 	@Override
 	public void run() {
 		try {
-			Node rootNode = null;
-			if (target.isDirectory()) {
-				// if this node is a "typed" node, get the VNode version of it
-				VNode vNode = null;
-				Element rootElement = null;
-				VirtualFile contentFile = target.findChild(".content.xml");
-				if (contentFile != null) {
-					rootElement = JDOMUtil.loadDocument(contentFile.getInputStream()).getRootElement();
-					vNode = VNode.makeVNode(rootElement);
-				}
+			Node rootNode = jcrConfiguration.getOrCreateParentNode(target.getPath(), "nt:folder");
 
-				// get/create rootNode
-				String nodeType = vNode == null ? "nt:folder" : vNode.getType();
-				rootNode = jcrConfiguration.getNodeCreative(target.getPath(),
-					"nt:folder", nodeType);
-
-				// wipe out existing nodes
-				NodeIterator nodeIterator = rootNode.getNodes();
-				while (nodeIterator.hasNext()) {
-					Node node = nodeIterator.nextNode();
-					node.remove();
-				}
-
-				// TODO : remove existing properties from rootNode
-
-				// set root node properties, if it has them
-				if (vNode != null) {
-					setProperties(rootNode, vNode);
-					unpackRecursively(rootElement, rootNode);
-				}
-
-				// start import to jcr
-				importR(rootNode, target);
-
-			} else {
-				rootNode = jcrConfiguration.getNodeCreative(target.getParent().getPath(),
-					"nt:folder", "nt:folder");
-				importFile(rootNode, target);
+			// handle content nodes specially... simply treat import as happening at one level above
+			if (".content.xml".equals(target.getName())) {
+				Node parent = rootNode.getParent();
+				rootNode.remove();
+				importR(parent, target.getParent());
 			}
+
+			// if this is a jcr content node, we have to remove it here before we try adding it again
+			else if ("text/xml".equals(getMimeType(target.getName()))) {
+				String name = PsiUtils.unmungeNamespace(target.getName().split("\\.")[0]);
+				if (rootNode.hasNode(name)) {
+					rootNode.getNode(name).remove();
+					rootNode.getSession().save();
+				}
+				importR(rootNode, target);
+			}
+
+			// normal import
+			else {
+				importR(rootNode, target);
+			}
+
 			rootNode.getSession().save();
 
 		} catch (RepositoryException re) {

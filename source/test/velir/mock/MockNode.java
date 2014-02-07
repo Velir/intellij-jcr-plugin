@@ -379,6 +379,12 @@ public class MockNode implements Node {
 
 	@Override
 	public Property getProperty(String s) throws PathNotFoundException, RepositoryException {
+		if (s.contains("/")) {
+			Pattern pattern = Pattern.compile("^([^/]*)/(.*)$");
+			Matcher matcher = pattern.matcher(s);
+			matcher.find();
+			return children.get(matcher.group(1)).getProperty(matcher.group(2));
+		}
 		return properties.get(s);
 	}
 
