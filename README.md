@@ -10,6 +10,12 @@ less testing, they may vaporize your code and/or CQ5 installation (but you have
 everything stored in version control, so it doesn't matter, right?).
 For safety, choose vault. For convenience, use the builtin plugin functions.
 
+Installation
+------------
+
+You can now find this plugin by going to Browse Repositories in Intellij's
+plugin section. It is named "JCR Content Editor".
+
 Setup
 -----
 
