@@ -215,6 +215,7 @@ public class JCRPushProcessTest {
 		when(parentFile.isDirectory()).thenReturn(true);
 		when(parentFile.getName()).thenReturn("path");
 		when(parentFile.getChildren()).thenReturn(siblings);
+		when(parentFile.findChild(".content.xml")).thenReturn(virtualFile);
 
 		when(virtualFile.isDirectory()).thenReturn(false);
 		when(virtualFile.getPath()).thenReturn("/test/path");

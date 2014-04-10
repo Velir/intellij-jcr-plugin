@@ -17,6 +17,7 @@
     <orderEntry type="library" name="org.apache.jackrabbit:jackrabbit-jcr-commons:2.6.2" level="project" />
     <orderEntry type="library" name="org.apache.jackrabbit:jackrabbit-jcr2dav:2.2.4" level="project" />
     <orderEntry type="library" name="org.slf4j:slf4j-log4j12:1.5.11" level="project" />
+    <orderEntry type="library" name="junit:junit:4.11" level="project" />
   </component>
 </module>
 

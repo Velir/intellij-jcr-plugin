@@ -49,13 +49,16 @@ public class JCRPushProcess implements Runnable {
 				VNode vNode = VNode.makeVNode(inputStream);
 				inputStream.close();
 				node = parent.addNode(PsiUtils.unmungeNamespace(virtualFile.getName()), vNode.getType());
+				importR(node, contentFile);
 			} else {
 				node = parent.addNode(virtualFile.getName(), "nt:folder");
 			}
 
-			// do children
+			// do children, skipping .content.xml if it exists, because we already did it above
 			for (VirtualFile child : virtualFile.getChildren()) {
-				importR(node, child);
+				if (! ".content.xml".equals(child.getName())) {
+					importR(node, child);
+				}
 			}
 
 		} else {
@@ -78,6 +81,14 @@ public class JCRPushProcess implements Runnable {
 					// this content is for a node that should be named after this file (E.G. dialog.xml -> dialog)
 					else {
 						String name = PsiUtils.unmungeNamespace(virtualFile.getName().split("\\.")[0]);
+
+						// sometimes .content.xml has defined a placeholder for this node
+						// if so, remove it now
+						if (hasPlaceholderNode(parent, name)) {
+							parent.getNode(name).remove();
+							parent.getSession().save();
+						}
+
 						unpackDestination = parent.addNode(name, vNode.getType());
 					}
 
@@ -97,6 +108,23 @@ public class JCRPushProcess implements Runnable {
 				importFile(parent, virtualFile);
 			}
 		}
+	}
+
+	/**
+	 * a parent is a placeholder if it's nt:unstructured and it doesn't have any properties besides primaryType
+	 * and doesn't have any child nodes
+	 *
+	 * @param parent
+	 * @return
+	 * @throws RepositoryException
+	 */
+	private boolean hasPlaceholderNode(Node parent, String name) throws RepositoryException {
+		if (parent.hasNode(name)) {
+			Node child = parent.getNode(name);
+			return child.getProperties().getSize() == 1 && child.getNodes().getSize() == 0; // 1 for jcr:primaryType
+		}
+
+		return false;
 	}
 
 	/**
