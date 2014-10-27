@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Calendar;
 import java.util.Date;
+import javax.activation.MimetypesFileTypeMap;
 import javax.jcr.Binary;
 import javax.jcr.Node;
 import javax.jcr.Property;
@@ -34,10 +35,12 @@ public class JCRPushProcess implements Runnable {
 	private static final Logger log = com.intellij.openapi.diagnostic.Logger.getInstance(JCRPushProcess.class);
 	private final VirtualFile target;
 	private final JCRConfiguration jcrConfiguration;
+	private final MimetypesFileTypeMap mimetypesFileTypeMap;
 
 	public JCRPushProcess(final VirtualFile target, final JCRConfiguration jcrConfiguration) {
 		this.target = target;
 		this.jcrConfiguration = jcrConfiguration;
+		mimetypesFileTypeMap = new MimetypesFileTypeMap();
 	}
 
 	private void importR (Node parent, VirtualFile virtualFile) throws RepositoryException, IOException, JDOMException {
@@ -237,20 +240,8 @@ public class JCRPushProcess implements Runnable {
 	}
 
 	private String getMimeType (String fileName) {
-		String[] dotParts = fileName.split("\\.");
-		if (dotParts.length == 1) return "text/plain";
-		String endPart = dotParts[dotParts.length - 1].toLowerCase();
-		if ("jpg".equals(endPart)) return "image/jpeg";
-		if ("ico".equals(endPart)) return "image/vnd.microsoft.icon";
-		if ("gif".equals(endPart)) return "image/gif";
-		if ("png".equals(endPart)) return "image/png";
-		if ("jsp".equals(endPart)) return "text/plain";
-		if ("css".equals(endPart)) return "text/css";
-		if ("xml".equals(endPart)) return "text/xml";
-		if ("js".equals(endPart)) return "application/x-javascript";
-
-		// default
-		return "text/plain";
+		String mimeType = mimetypesFileTypeMap.getContentType(fileName);
+		return mimeType.equals("application/octet-stream") ? "text/plain" : mimeType; // default to text/plain
 	}
 
 	@Override
