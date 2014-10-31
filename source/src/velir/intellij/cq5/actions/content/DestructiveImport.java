@@ -1,5 +1,7 @@
 package velir.intellij.cq5.actions.content;
 
+import javax.activation.MimetypesFileTypeMap;
+
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataConstants;
 import com.intellij.openapi.actionSystem.DataContext;
@@ -21,6 +23,7 @@ import velir.intellij.cq5.jcr.process.JCRPushProcess;
 public class DestructiveImport extends JCRAction {
 	private static final Logger log = com.intellij.openapi.diagnostic.Logger.getInstance(JCRAction.class);
 	public static final String JCR_MIXIN_TYPES = "jcr:mixinTypes";
+	private static final MimetypesFileTypeMap mimetypesFileTypeMap = new MimetypesFileTypeMap();
 
 	@Override
 	public void actionPerformed(AnActionEvent anActionEvent) {
@@ -34,7 +37,7 @@ public class DestructiveImport extends JCRAction {
 			public void run(@NotNull ProgressIndicator progressIndicator) {
 				progressIndicator.setIndeterminate(true);
 				progressIndicator.setText("Importing to JCR...");
-				application.runReadAction(new JCRPushProcess(target, jcrConfiguration));
+				application.runReadAction(new JCRPushProcess(target, jcrConfiguration, mimetypesFileTypeMap));
 			}
 		};
 		ProgressManager.getInstance().run(task);

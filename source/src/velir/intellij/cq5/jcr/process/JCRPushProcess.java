@@ -37,10 +37,10 @@ public class JCRPushProcess implements Runnable {
 	private final JCRConfiguration jcrConfiguration;
 	private final MimetypesFileTypeMap mimetypesFileTypeMap;
 
-	public JCRPushProcess(final VirtualFile target, final JCRConfiguration jcrConfiguration) {
+	public JCRPushProcess(final VirtualFile target, final JCRConfiguration jcrConfiguration, final MimetypesFileTypeMap mimetypesFileTypeMap) {
 		this.target = target;
 		this.jcrConfiguration = jcrConfiguration;
-		mimetypesFileTypeMap = new MimetypesFileTypeMap();
+		this.mimetypesFileTypeMap = mimetypesFileTypeMap;
 	}
 
 	private void importR (Node parent, VirtualFile virtualFile) throws RepositoryException, IOException, JDOMException {
@@ -65,7 +65,7 @@ public class JCRPushProcess implements Runnable {
 			}
 
 		} else {
-			if ("text/xml".equals(getMimeType(virtualFile.getName()))) {
+			if (virtualFile.getName().toLowerCase().endsWith(".xml")) {
 				InputStream inputStream = virtualFile.getInputStream();
 				final Document document = JDOMUtil.loadDocument(inputStream);
 				inputStream.close();
@@ -257,7 +257,7 @@ public class JCRPushProcess implements Runnable {
 			}
 
 			// if this is a jcr content node, we have to remove it here before we try adding it again
-			else if ("text/xml".equals(getMimeType(target.getName()))) {
+			else if (target.getName().toLowerCase().endsWith(".xml")) {
 				String name = PsiUtils.unmungeNamespace(target.getName().split("\\.")[0]);
 				if (rootNode.hasNode(name)) {
 					rootNode.getNode(name).remove();

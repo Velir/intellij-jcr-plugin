@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import javax.activation.MimetypesFileTypeMap;
 import javax.jcr.Node;
 import javax.jcr.RepositoryException;
 
@@ -35,11 +36,14 @@ public class JCRPushProcessTest {
 	@Mock
 	JCRConfiguration jcrConfiguration;
 
+	@Mock
+	MimetypesFileTypeMap mimetypesFileTypeMap;
+
 	JCRPushProcess jcrPushProcess;
 
 	@Before
 	public void setup () {
-		jcrPushProcess = new JCRPushProcess(virtualFile, jcrConfiguration);
+		jcrPushProcess = new JCRPushProcess(virtualFile, jcrConfiguration, mimetypesFileTypeMap);
 	}
 
 	private Node makeNode () throws RepositoryException {
