@@ -1,7 +1,7 @@
 <idea-plugin version="2">
 	<name>JCR Content Editor</name>
 	<description>Allows import/export of JCR content from CQ/AEM(/other?) and limited editing</description>
-	<version>1.1.5</version>
+	<version>1.1.6</version>
 	<vendor>Velir</vendor>
 	<idea-version since-build="8000"/>
 
@@ -62,7 +62,7 @@
 			              relative-to-action="velir.intellij.cq5.actions.content.UnpackXml"/>
 		</action>
 		<action id="velir.intellij.cq5.actions.content.DestructiveImport" class="velir.intellij.cq5.actions.content.DestructiveImport"
-		        text="Import to JCR (destructive)">
+		        text="Import to JCR">
 			<add-to-group group-id="ProjectViewPopupMenu" anchor="after"
 			              relative-to-action="velir.intellij.cq5.actions.content.Export"/>
 			<add-to-group group-id="EditorTabPopupMenu" anchor="last"/>

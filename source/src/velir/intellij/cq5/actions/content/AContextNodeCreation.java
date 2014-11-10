@@ -1,10 +1,16 @@
 package velir.intellij.cq5.actions.content;
 
-import com.intellij.openapi.actionSystem.*;
+import java.io.IOException;
+import java.util.Map;
+
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.DataContext;
+import com.intellij.openapi.actionSystem.LangDataKeys;
+import com.intellij.openapi.actionSystem.PlatformDataKeys;
+import com.intellij.openapi.actionSystem.Presentation;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.Computable;
 import com.intellij.psi.PsiDirectory;
 import com.intellij.psi.PsiElement;
@@ -14,9 +20,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import velir.intellij.cq5.jcr.model.VNode;
 import velir.intellij.cq5.jcr.model.VNodeDefinition;
-
-import java.io.IOException;
-import java.util.Map;
 
 public abstract class AContextNodeCreation extends ANewNode {
 	private static final Logger log = LoggerFactory.getLogger(AContextNodeCreation.class);
@@ -47,11 +50,9 @@ public abstract class AContextNodeCreation extends ANewNode {
 						try {
 							return VNode.makeVNode(contentFile.getVirtualFile().getInputStream(), contentFile.getContainingDirectory().getName());
 						} catch (IOException ioe) {
-							log.error("Could not read node xml", ioe);
-							Messages.showMessageDialog(project, "Could not read node xml", "Error", Messages.getErrorIcon());
+							log.debug("Could not read node xml", ioe);
 						} catch (JDOMException jde) {
-							log.error("Could not read node xml", jde);
-							Messages.showMessageDialog(project, "Could not read node xml", "Error", Messages.getErrorIcon());
+							log.debug("Could not read node xml", jde);
 						}
 						return null;
 					}

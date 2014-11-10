@@ -150,7 +150,7 @@ public class JCRConfiguration implements FacetConfiguration, PersistentStateComp
 		try {
 			VNodeDefinition.buildDefinitions(getSession());
 		} catch (RepositoryException re) {
-			log.error("could not build node definitions", re);
+			log.warn("could not build node definitions", re);
 		}
 	}
 
